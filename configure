@@ -249,6 +249,12 @@ supported_target() {
                 return 1
             fi
             ;;
+        *-venix-user)
+            if test "$bsd" != "yes"; then
+                print_error "Target '$target' is only available on a BSD host"
+                return 1
+            fi
+            ;;
         *)
             print_error "Invalid target name '$target'"
             return 1
@@ -1129,6 +1135,10 @@ for opt do
   ;;
   --enable-bsd-user) bsd_user="yes"
   ;;
+  --disable-venix-user) venix_user="no"
+  ;;
+  --enable-venix-user) venix_user="yes"
+  ;;
   --enable-pie) pie="yes"
   ;;
   --disable-pie) pie="no"
@@ -1458,6 +1468,9 @@ fi
 if [ "$bsd_user" = "yes" ]; then
     mak_wilds="${mak_wilds} $source_path/default-configs/*-bsd-user.mak"
 fi
+if [ "$venix_user" = "yes" ]; then
+    mak_wilds="${mak_wilds} $source_path/default-configs/*-venix-user.mak"
+fi
 
 for config in $mak_wilds; do
     default_target_list="${default_target_list} $(basename "$config" .mak)"
@@ -1555,6 +1568,7 @@ disabled with --disable-FEATURE, default is enabled if available:
   user            supported user emulation targets
   linux-user      all linux usermode emulation targets
   bsd-user        all BSD usermode emulation targets
+  venix-user      all VENIX usermode emulation targets
   docs            build documentation
   guest-agent     build the QEMU Guest Agent
   guest-agent-msi build guest agent Windows MSI installation package
@@ -6754,6 +6768,10 @@ case "$target" in
     target_user_only="yes"
     target_bsd_user="yes"
     ;;
+  ${target_name}-venix-user)
+    target_user_only="yes"
+    target_venix_user="yes"
+    ;;
   *)
     error_exit "Target '$target' not recognised"
     exit 1
@@ -6981,6 +6999,9 @@ if test "$target_user_only" = "yes" -a "$bflt" = "yes"; then
 fi
 if test "$target_bsd_user" = "yes" ; then
   echo "CONFIG_BSD_USER=y" >> $config_target_mak
+fi
+if test "$target_venix_user" = "yes" ; then
+  echo "CONFIG_VENIX_USER=y" >> $config_target_mak
 fi
 
 # generate QEMU_CFLAGS/LDFLAGS for targets

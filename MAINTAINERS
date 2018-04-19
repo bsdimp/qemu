@@ -1794,6 +1794,11 @@ S: Orphan
 F: bsd-user/
 F: default-configs/*-bsd-user.mak
 
+BSD user
+S: Warner Losh <imp@bsdimp.com>
+F: venix-user/
+F: default-configs/*-venix-user.mak
+
 Linux user
 M: Riku Voipio <riku.voipio@iki.fi>
 R: Laurent Vivier <laurent@vivier.eu>

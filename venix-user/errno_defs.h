@@ -1,0 +1,42 @@
+/* Taken from v7 distribution on TUHS */
+
+/*
+ * Error codes
+ */
+
+#define TARGET_EPERM	1
+#define TARGET_ENOENT	2
+#define TARGET_ESRCH	3
+#define TARGET_EINTR	4
+#define TARGET_EIO	5
+#define TARGET_ENXIO	6
+#define TARGET_E2BIG	7
+#define TARGET_ENOEXEC	8
+#define TARGET_EBADF	9
+#define TARGET_ECHILD	10
+#define TARGET_EAGAIN	11
+#define TARGET_ENOMEM	12
+#define TARGET_EACCES	13
+#define TARGET_EFAULT	14
+#define TARGET_ENOTBLK	15
+#define TARGET_EBUSY	16
+#define TARGET_EEXIST	17
+#define TARGET_EXDEV	18
+#define TARGET_ENODEV	19
+#define TARGET_ENOTDIR	20
+#define TARGET_EISDIR	21
+#define TARGET_EINVAL	22
+#define TARGET_ENFILE	23
+#define TARGET_EMFILE	24
+#define TARGET_ENOTTY	25
+#define TARGET_ETXTBSY	26
+#define TARGET_EFBIG	27
+#define TARGET_ENOSPC	28
+#define TARGET_ESPIPE	29
+#define TARGET_EROFS	30
+#define TARGET_EMLINK	31
+#define TARGET_EPIPE	32
+
+/* math software */
+#define TARGET_EDOM	33
+#define TARGET_ERANGE	34
