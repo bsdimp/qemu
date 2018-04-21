@@ -75,6 +75,21 @@ struct emulated_sigtable {
                              first signal, we put it here */
 };
 
+/* Information about the current linux thread */
+struct vm86_saved_state {
+    uint32_t eax; /* return code */
+    uint32_t ebx;
+    uint32_t ecx;
+    uint32_t edx;
+    uint32_t esi;
+    uint32_t edi;
+    uint32_t ebp;
+    uint32_t esp;
+    uint32_t eflags;
+    uint32_t eip;
+    uint16_t cs, ss, ds, es, fs, gs;
+};
+
 /* NOTE: we force a big alignment so that the stack stored after is
    aligned too */
 typedef struct TaskState {
@@ -83,6 +98,12 @@ typedef struct TaskState {
     struct TaskState *next;
     int used; /* non zero if used */
     struct image_info *info;
+
+    abi_ulong target_v86;
+    struct vm86_saved_state vm86_saved_regs;
+    struct target_vm86plus_struct vm86plus;
+    uint32_t v86flags;
+    uint32_t v86mask;
 
     struct emulated_sigtable sigtab[TARGET_NSIG];
     struct sigqueue sigqueue_table[MAX_SIGQUEUE_SIZE]; /* siginfo queue */
@@ -190,6 +211,12 @@ int target_msync(abi_ulong start, abi_ulong len, int flags);
 extern unsigned long last_brk;
 void mmap_fork_start(void);
 void mmap_fork_end(int child);
+
+/* vm86.c */
+void save_v86_state(CPUX86State *env);
+void handle_vm86_trap(CPUX86State *env, int trapno);
+void handle_vm86_fault(CPUX86State *env);
+int do_vm86(CPUX86State *env, long subfunction, abi_ulong v86_addr);
 
 /* main.c */
 extern unsigned long x86_stack_size;
@@ -386,5 +413,70 @@ static inline void *lock_user_string(abi_ulong guest_addr)
 #if defined(CONFIG_USE_NPTL)
 #include <pthread.h>
 #endif
+
+static const int OMAGIC = 0407;		// Old impure format (TINY SS = CS = DS = ES)
+static const int NMAGIC = 0411;		// I&D fprmat (CS and SS = DS == ES)
+
+/* Basic types */
+typedef	int16_t		venix_daddr_t;	/* disk address */
+typedef	int16_t		venix_ino_t;	/* i-node number */
+typedef	int32_t		venix_time_t;	/* a time */
+typedef	int16_t		venix_dev_t;	/* device code */
+typedef	int32_t		venix_off_t;	/* offset */
+
+/*
+ * Header prepended to each a.out file.
+ */
+struct venix_exec {
+	int16_t		a_magic;	/* magic number */
+	uint16_t	a_stack;	/* size of stack if Z type, 0 otherwise */
+	int32_t		a_text;		/* size of text segment */
+	int32_t		a_data;		/* size of initialized data */
+	int32_t		a_bss;		/* size of uninitialized data */
+	int32_t		a_syms;		/* size of symbol table */
+	int32_t		a_entry;	/* entry point */
+	int32_t		a_trsize;	/* size of text relocation */
+	int32_t		a_drsize;	/* size of data relocation */
+};
+static_assert(sizeof(struct venix_exec) == 32, "Bad venix_exec size");
+
+/*
+ * ftime return structure
+ */
+struct venix_timeb {
+	venix_time_t	time;
+	uint16_t	millitm;
+	int16_t		timezone;
+	int16_t		dstflag;
+} __packed;
+static_assert(sizeof(struct venix_timeb) == 10, "Bad venix_timeb size");
+
+/*
+ * tty ioctl
+ */
+struct	venix_sgttyb {
+	int8_t		sg_ispeed;
+	int8_t		sg_ospeed;
+	int8_t		sg_erase;
+	int8_t		sg_kill;
+	int16_t		sg_flags;
+} __packed;
+static_assert(sizeof(struct venix_sgttyb) == 6, "Bad venix_sgttyb size");
+
+struct venix_stat
+{
+	venix_dev_t	st_dev;
+	venix_ino_t	st_ino;
+	uint16_t	st_mode;
+	int16_t		st_nlink;
+	int16_t		st_uid;
+	int16_t		st_gid;
+	venix_dev_t	st_rdev;
+	venix_off_t	st_size;
+	venix_time_t	st_atime_v;
+	venix_time_t	st_mtime_v;
+	venix_time_t	st_ctime_v;
+} __packed;
+static_assert(sizeof(struct venix_stat) == 30, "bad venix_stat size");
 
 #endif /* QEMU_H */

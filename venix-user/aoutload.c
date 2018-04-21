@@ -173,9 +173,65 @@ int loader_exec(const char * filename, char ** argv, char ** envp,
     return(retval);
 }
 #else
+
+
 int loader_exec(const char * filename, char ** argv, char ** envp,
              struct target_pt_regs * regs, struct image_info *infop)
 {
-    return EIO;
+    int fd = -1;
+    struct venix_exec hdr;
+    char *memory = NULL;
+    abi_ulong offset, segment;
+
+    printf("Loading %s\n", filename);
+    fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        return -errno;
+    }
+
+    if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+        goto errout;
+    }
+    printf("Magic is 0%o\n", hdr.a_magic);
+    if (hdr.a_magic != OMAGIC && hdr.a_magic != NMAGIC) {
+        printf("Bad Magic Number\n");
+        errno = EINVAL;
+        goto errout;
+    }
+
+    memory = malloc(1 << 20);	// 8086 has 1MB space, so just allocate it
+    if (memory == NULL) {
+        errno = ENOMEM;
+        goto errout;
+    }
+    memset(memory, 0, 1 << 20);
+
+    segment = 0x60;
+    offset = segment << 4;
+    // Read Text
+    if (read(fd, memory + offset, hdr.a_text) != hdr.a_text) {
+        goto errout;
+    }
+    // Read Data
+    if (read(fd, memory + offset + hdr.a_text + hdr.a_stack,
+             hdr.a_data) != hdr.a_data) {
+        goto errout;
+    }
+
+    infop->start_brk = offset + hdr.a_text + hdr.a_stack + hdr.a_data + hdr.a_bss;
+    /*
+     * For NMAGIC binaries, the 'break' address doesn't include the text section,
+     * so adjust that after we've marked all the memory in use.
+     */
+    if (hdr.a_magic == NMAGIC) {
+        infop->start_brk -= hdr.a_text;
+    }
+
+    return 0;
+errout:
+    free(memory);
+    close(fd);
+    return -errno;
+    
 }
 #endif

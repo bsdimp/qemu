@@ -160,96 +160,6 @@ void cpu_loop(CPUX86State *env)
             /* No nothing */
             break;
 #if 0
-        case 0x80:
-            /* syscall from int $0x80 */
-            if (bsd_type == target_freebsd) {
-                abi_ulong params = (abi_ulong) env->regs[R_ESP] +
-                    sizeof(int32_t);
-                int32_t syscall_nr = env->regs[R_EAX];
-                int32_t arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8;
-
-                if (syscall_nr == TARGET_FREEBSD_NR_syscall) {
-                    get_user_s32(syscall_nr, params);
-                    params += sizeof(int32_t);
-                } else if (syscall_nr == TARGET_FREEBSD_NR___syscall) {
-                    get_user_s32(syscall_nr, params);
-                    params += sizeof(int64_t);
-                }
-                get_user_s32(arg1, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg2, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg3, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg4, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg5, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg6, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg7, params);
-                params += sizeof(int32_t);
-                get_user_s32(arg8, params);
-                env->regs[R_EAX] = do_freebsd_syscall(env,
-                                                      syscall_nr,
-                                                      arg1,
-                                                      arg2,
-                                                      arg3,
-                                                      arg4,
-                                                      arg5,
-                                                      arg6,
-                                                      arg7,
-                                                      arg8);
-            } else { //if (bsd_type == target_openbsd)
-                env->regs[R_EAX] = do_openbsd_syscall(env,
-                                                      env->regs[R_EAX],
-                                                      env->regs[R_EBX],
-                                                      env->regs[R_ECX],
-                                                      env->regs[R_EDX],
-                                                      env->regs[R_ESI],
-                                                      env->regs[R_EDI],
-                                                      env->regs[R_EBP]);
-            }
-            if (((abi_ulong)env->regs[R_EAX]) >= (abi_ulong)(-515)) {
-                env->regs[R_EAX] = -env->regs[R_EAX];
-                env->eflags |= CC_C;
-            } else {
-                env->eflags &= ~CC_C;
-            }
-            break;
-#endif
-#ifndef TARGET_ABI32
-        case EXCP_SYSCALL:
-            /* syscall from syscall instruction */
-            if (bsd_type == target_freebsd)
-                env->regs[R_EAX] = do_freebsd_syscall(env,
-                                                      env->regs[R_EAX],
-                                                      env->regs[R_EDI],
-                                                      env->regs[R_ESI],
-                                                      env->regs[R_EDX],
-                                                      env->regs[R_ECX],
-                                                      env->regs[8],
-                                                      env->regs[9], 0, 0);
-            else { //if (bsd_type == target_openbsd)
-                env->regs[R_EAX] = do_openbsd_syscall(env,
-                                                      env->regs[R_EAX],
-                                                      env->regs[R_EDI],
-                                                      env->regs[R_ESI],
-                                                      env->regs[R_EDX],
-                                                      env->regs[10],
-                                                      env->regs[8],
-                                                      env->regs[9]);
-            }
-            env->eip = env->exception_next_eip;
-            if (((abi_ulong)env->regs[R_EAX]) >= (abi_ulong)(-515)) {
-                env->regs[R_EAX] = -env->regs[R_EAX];
-                env->eflags |= CC_C;
-            } else {
-                env->eflags &= ~CC_C;
-            }
-            break;
-#endif
-#if 0
         case EXCP0B_NOSEG:
         case EXCP0C_STACK:
             info.si_signo = SIGBUS;
@@ -344,7 +254,7 @@ void cpu_loop(CPUX86State *env)
         case EXCP_INTERRUPT:
             /* just indicate that signals should be handled asap */
             break;
-#if 0
+#ifdef SUPPORT_GDB
         case EXCP_DEBUG:
             {
                 int sig;
@@ -390,7 +300,6 @@ static void usage(void)
            "-E var=value      sets/modifies targets environment variable(s)\n"
            "-U var            unsets targets environment variable(s)\n"
            "-B address        set guest_base address to address\n"
-           "-bsd type         select emulated BSD type FreeBSD/NetBSD/OpenBSD (default)\n"
            "\n"
            "Debug options:\n"
            "-d item1[,...]    enable logging of specified items\n"
@@ -719,7 +628,10 @@ int main(int argc, char **argv)
     /* flags setup : we activate the IRQs by default as in user mode */
     env->eflags |= IF_MASK;
 
-    /* linux register setup */
+    /* Venix binaries are 8086, so start out in VM86 mode and never exit */
+    env->eflags |= VM_MASK;
+
+    /* process register setup */
 #ifndef TARGET_ABI32
     env->regs[R_EAX] = regs->rax;
     env->regs[R_EBX] = regs->rbx;
@@ -742,7 +654,7 @@ int main(int argc, char **argv)
     env->eip = regs->eip;
 #endif
 
-    /* linux interrupt setup */
+    /* process interrupt setup */
 #ifndef TARGET_ABI32
     env->idt.limit = 511;
 #else
@@ -778,7 +690,8 @@ int main(int argc, char **argv)
     set_idt(0xf3, 3);
     set_idt(0xf4, 3);
 
-    /* linux segment setup */
+    /* process segment setup */
+    /* XXX -- too complicated? */
     {
         uint64_t *gdt_table;
         env->gdt.base = target_mmap(0, sizeof(uint64_t) * TARGET_GDT_ENTRIES,
